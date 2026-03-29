@@ -1,0 +1,93 @@
+import type { BranchNode } from "./graphql/branch";
+import type { RateLimit } from "./graphql/general";
+import type { RepositoryNode } from "./graphql/repository";
+
+export interface ImportConfig {
+	accounts: AccountConfig[];
+}
+
+export interface AccountConfig {
+	username: string;
+	tokens: string[];
+}
+
+export interface User {
+	id: string;
+	login: string;
+	avatarUrl: string;
+	url: string;
+}
+
+export interface Organization {
+	login: string;
+	name: string;
+	avatarUrl: string;
+	url: string;
+}
+
+export interface Commit {
+	oid: string;
+	additions: number;
+	deletions: number;
+	changedFiles: number;
+	commitedAtTimestamp: number;
+}
+
+export interface Branch {
+	name: string;
+	latestCommitOid?: string;
+}
+
+export interface Repository {
+	name: string;
+	isPrivate: boolean;
+	lastCommitTimestamp?: number;
+	url: string;
+	languages: string[];
+	owner: string;
+	defaultBranch: string;
+	commits: Record<string, Commit>;
+	branches: Record<string, Branch>;
+}
+
+export interface Account {
+	user?: User;
+	organizations: Record<string, Organization>;
+	repositories: Record<string, Repository>;
+}
+
+export interface ProgressStats {
+	repoCount: number;
+	branchCount: number;
+	commitCount: number;
+	additionCount: number;
+	deletionCount: number;
+	changedFileCount: number;
+}
+
+export interface ProgressContext {
+	repositoryNode?: RepositoryNode;
+	branchNode?: BranchNode;
+	branchCount?: number;
+}
+
+export interface AccountProgress {
+	rateLimits: RateLimit[];
+	progressStats: {
+		initial: ProgressStats;
+		total: ProgressStats;
+		current: ProgressStats;
+	};
+	context: ProgressContext[];
+	status: "pending" | "in-progress" | "completed" | "error";
+}
+
+export interface ImportData {
+	accounts: Record<string, Account>;
+	languageColors: Record<string, string>;
+	importState: {
+		lastFullImportTimestamp?: number;
+		currentProgressTimestamp?: number;
+		accountProgress: Record<string, AccountProgress>;
+	};
+}

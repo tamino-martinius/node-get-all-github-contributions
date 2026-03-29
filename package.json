@@ -1,0 +1,19 @@
+{
+  "name": "get-all-github-contributions",
+  "version": "0.1.0",
+  "description": "Get all GitHub contributions",
+  "scripts": {
+    "import:ui": "npx tsx scripts/import-ui.ts",
+    "github:graphiql": "node GraphiQL/server.mjs",
+    "lint": "biome check .",
+    "lint:fix": "biome check --fix ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.4.9",
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
