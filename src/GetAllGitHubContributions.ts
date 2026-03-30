@@ -47,23 +47,27 @@ const DEFAULT_PROGRESS_STATS: ProgressStats = {
 };
 
 export class GetAllGitHubContributions {
-  #config: ImportConfig;
   #data: ImportData;
   #concurrency: number;
   #maxRetries: number;
+  #skippedOrganizations: string[];
+  #skippedRepositories: string[];
+  #tokens: Record<string, string>;
 
   constructor(props: {
     config: ImportConfig;
     data?: ImportData;
   }) {
-    this.#config = props.config;
+    this.#tokens = props.config.tokens;
+    this.#concurrency = props.config.import?.concurrency ?? DEFAULT_CONCURRENCY;
+    this.#maxRetries = props.config.import?.maxRetries ?? DEFAULT_MAX_RETRIES;
+    this.#skippedOrganizations = props.config.import?.skip?.organizations ?? [];
+    this.#skippedRepositories = props.config.import?.skip?.repositories ?? [];
     this.#data = props.data ?? {
       accounts: {},
       languageColors: {},
       importState: { accountProgress: {} },
     };
-    this.#concurrency = props.config.import?.concurrency ?? DEFAULT_CONCURRENCY;
-    this.#maxRetries = props.config.import?.maxRetries ?? DEFAULT_MAX_RETRIES;
   }
 
   #runParallel<T, U>(props: {
@@ -141,14 +145,14 @@ export class GetAllGitHubContributions {
         current: { ...DEFAULT_PROGRESS_STATS },
         new: { ...DEFAULT_PROGRESS_STATS },
       },
-      status: Object.keys(this.#config.tokens).includes(accountLogin)
+      status: Object.keys(this.#tokens).includes(accountLogin)
         ? "pending"
         : "unknown",
     };
   }
 
   #initializeAccountProgress(): Record<string, AccountProgress> {
-    const configuredAccountLogins = Object.keys(this.#config.tokens);
+    const configuredAccountLogins = Object.keys(this.#tokens);
     const nonConfiguredAccountLogins = Object.keys(this.#data.accounts).filter(
       (accountLogin) => !configuredAccountLogins.includes(accountLogin),
     );
@@ -294,11 +298,15 @@ export class GetAllGitHubContributions {
     Logger.log("Syncing branches for", accountLogin, repositoryNode.name);
     const currentRepositoryData = accountData.repositories[repositoryNode.id];
     const lastCommitTimestamp = new Date(repositoryNode.pushedAt).getTime();
-    if (
+    const isSkipped =
+      this.#skippedOrganizations.includes(repositoryNode.owner.login) ||
+      this.#skippedRepositories.includes(
+        `${repositoryNode.owner.login}/${repositoryNode.name}`,
+      );
+    const hasNoUpdates =
       currentRepositoryData.lastCommitTimestamp &&
-      currentRepositoryData.lastCommitTimestamp === lastCommitTimestamp
-    ) {
-      // No pushes since last sync, so no branches to sync
+      currentRepositoryData.lastCommitTimestamp === lastCommitTimestamp;
+    if (isSkipped || hasNoUpdates) {
       accountProgress.progressStats.current.repoCount += 1;
       accountProgress.progressStats.current.branchCount += Object.values(
         currentRepositoryData.branches,
@@ -354,11 +362,10 @@ export class GetAllGitHubContributions {
     );
     const currentRepositoryData = accountData.repositories[repositoryNode.id];
     const currentBranchData = currentRepositoryData.branches[branchNode.id];
-    if (
+    const hasNoUpdates =
       currentBranchData.latestCommitOid &&
-      currentBranchData.latestCommitOid === branchNode.target.oid
-    ) {
-      // No new commits since last sync, so no commits to sync
+      currentBranchData.latestCommitOid === branchNode.target.oid;
+    if (hasNoUpdates) {
       accountProgress.progressStats.current.branchCount += 1;
       this.#printProgressDot();
       return;
@@ -432,7 +439,7 @@ export class GetAllGitHubContributions {
         }
         const accountData = this.#data.accounts[accountLogin];
         const githubApi = new GitHubApi({
-          token: this.#config.tokens[accountLogin],
+          token: this.#tokens[accountLogin],
           onRateLimitChange: (rateLimit) => {
             accountProgress.rateLimit = rateLimit;
           },

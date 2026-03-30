@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2
+
+- Implement configuration to skip repositories / organization
+
 ## 0.1.1
 
 - Added README with usage documentation
