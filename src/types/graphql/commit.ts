@@ -1,4 +1,4 @@
-import type { PaginatedResponse } from "./general";
+import type { PaginatedResponse } from "./general.js";
 
 export interface CommitNode {
   oid: string;

@@ -3,9 +3,7 @@
   "title": "GitHub Contributions Tracker Configuration",
   "description": "Configuration for tracking GitHub contributions across multiple accounts",
   "type": "object",
-  "required": [
-    "tokens"
-  ],
+  "required": ["tokens"],
   "properties": {
     "tokens": {
       "type": "object",

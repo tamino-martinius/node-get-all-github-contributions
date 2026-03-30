@@ -1,6 +1,6 @@
-import type { BranchNode } from "./graphql/branch";
-import type { RateLimit } from "./graphql/general";
-import type { RepositoryNode } from "./graphql/repository";
+import type { BranchNode } from "./graphql/branch.js";
+import type { RateLimit } from "./graphql/general.js";
+import type { RepositoryNode } from "./graphql/repository.js";
 
 export interface ImportConfig {
   tokens: Record<string, string>;

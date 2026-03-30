@@ -7,12 +7,8 @@
     "concurrency": 10,
     "maxRetries": 2,
     "skip": {
-      "organizations": [
-        "exampleOrganization"
-      ],
-      "repositories": [
-        "owner/repository"
-      ]
+      "organizations": ["exampleOrganization"],
+      "repositories": ["owner/repository"]
     }
   }
 }

@@ -3,7 +3,7 @@ import {
   type LoggableLevel,
   type LogLevel,
   logLevels,
-} from "../types/Logger";
+} from "../types/Logger.js";
 
 const logLevelFromEnv = process.env.LOG_LEVEL;
 const logLevel: LogLevel = isLogLevel(logLevelFromEnv)

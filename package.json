@@ -2,11 +2,37 @@
   "name": "get-all-github-contributions",
   "version": "0.1.0",
   "description": "Get all GitHub contributions",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
+    "build": "rm -rf dist tsconfig.build.tsbuildinfo && tsc -p tsconfig.build.json",
+    "prepack": "npm run build",
     "import": "npx tsx scripts/import.ts",
     "github:graphiql": "node GraphiQL/server.mjs",
     "lint": "biome check .",
     "lint:fix": "biome check --fix ."
+  },
+  "keywords": [
+    "github",
+    "contributions",
+    "commits",
+    "graphql",
+    "sync"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tamino-martinius/node-get-all-github-contributions.git"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.9",

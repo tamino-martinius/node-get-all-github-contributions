@@ -4,29 +4,29 @@ import type {
   BranchesPage,
   BranchesPageResponse,
   BranchNode,
-} from "./types/graphql/branch";
+} from "./types/graphql/branch.js";
 import type {
   CommitNode,
   CommitsPage,
   CommitsPageResponse,
-} from "./types/graphql/commit";
+} from "./types/graphql/commit.js";
 import type {
   PaginatedResponse,
   RateLimit,
   ViewerResponse,
-} from "./types/graphql/general";
+} from "./types/graphql/general.js";
 import type {
   OrganizationNode,
   OrganizationsPage,
   OrganizationsPageResponse,
-} from "./types/graphql/organization";
+} from "./types/graphql/organization.js";
 import type {
   OrganizationRepositoriesPageResponse,
   RepositoriesPage,
   RepositoriesPageResponse,
   RepositoryNode,
-} from "./types/graphql/repository";
-import { Logger } from "./util/Logger";
+} from "./types/graphql/repository.js";
+import { Logger } from "./util/Logger.js";
 
 interface GitHubApiOptions {
   token: string;

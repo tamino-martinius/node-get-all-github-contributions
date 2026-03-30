@@ -1,7 +1,7 @@
-import { GitHubApi } from "./GitHubApi";
-import type { BranchNode } from "./types/graphql/branch";
-import type { OrganizationNode } from "./types/graphql/organization";
-import type { RepositoryNode } from "./types/graphql/repository";
+import { GitHubApi } from "./GitHubApi.js";
+import type { BranchNode } from "./types/graphql/branch.js";
+import type { OrganizationNode } from "./types/graphql/organization.js";
+import type { RepositoryNode } from "./types/graphql/repository.js";
 import type {
   Account,
   AccountProgress,
@@ -11,9 +11,9 @@ import type {
   ImportData,
   ProgressStats,
   Repository,
-} from "./types/import";
-import { Logger } from "./util/Logger";
-import { runParallel } from "./util/runParallel";
+} from "./types/import.js";
+import { Logger } from "./util/Logger.js";
+import { runParallel } from "./util/runParallel.js";
 
 type SyncAccountBaseDataProps = {
   githubApi: GitHubApi;
