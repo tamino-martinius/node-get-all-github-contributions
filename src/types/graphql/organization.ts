@@ -1,18 +1,18 @@
 import type { PaginatedResponse } from "./general";
 
 export interface OrganizationNode {
-	id: string;
-	login: string;
-	name: string;
-	avatarUrl: string;
-	url: string;
+  id: string;
+  login: string;
+  name: string;
+  avatarUrl: string;
+  url: string;
 }
 
 export interface OrganizationsPage
-	extends PaginatedResponse<OrganizationNode> {}
+  extends PaginatedResponse<OrganizationNode> {}
 
 export interface OrganizationsPageResponse {
-	viewer: {
-		organizations: OrganizationsPage;
-	};
+  viewer: {
+    organizations: OrganizationsPage;
+  };
 }

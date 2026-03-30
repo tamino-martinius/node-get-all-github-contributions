@@ -1,14 +1,11 @@
 {
   "$schema": "./config.schema.json",
-  "accounts": [
-    {
-      "username": "tamino-martinius",
-      "token": "ghp_exampleToken1234567890abcdef"
-    }
-  ],
+  "tokens": {
+    "username": "ghp_exampleToken1234567890abcdef"
+  },
   "import": {
-    "batchSize": 10,
-    "maxRetries": 5,
+    "concurrency": 10,
+    "maxRetries": 2,
     "skip": {
       "organizations": [
         "exampleOrganization"

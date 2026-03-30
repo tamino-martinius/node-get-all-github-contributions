@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Get all GitHub contributions",
   "scripts": {
-    "import:ui": "npx tsx scripts/import-ui.ts",
+    "import": "npx tsx scripts/import.ts",
     "github:graphiql": "node GraphiQL/server.mjs",
     "lint": "biome check .",
     "lint:fix": "biome check --fix ."

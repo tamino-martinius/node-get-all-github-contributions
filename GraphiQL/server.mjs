@@ -4,9 +4,9 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const configPath = resolve(__dirname, "../../../../../..", "config.json");
+const configPath = resolve(__dirname, "..", "config.json");
 const config = JSON.parse(readFileSync(configPath, "utf-8"));
-const token = config.accounts[0].tokens[0];
+const token = config.accounts[0].token;
 
 const html = readFileSync(join(__dirname, "index.html"), "utf-8").replace(
 	"__GITHUB_TOKEN__",
