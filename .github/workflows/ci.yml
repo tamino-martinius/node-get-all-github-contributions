@@ -27,4 +27,4 @@ jobs:
           node-version: lts/*
           cache: npm
       - run: npm ci
-      - run: npm run pack
+      - run: npm pack
