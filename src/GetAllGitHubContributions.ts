@@ -50,6 +50,8 @@ export class GetAllGitHubContributions {
   #data: ImportData;
   #concurrency: number;
   #maxRetries: number;
+  #pageSize?: number;
+  #rateLimitGracePeriod?: number;
   #skippedOrganizations: string[];
   #skippedRepositories: string[];
   #tokens: Record<string, string>;
@@ -61,6 +63,8 @@ export class GetAllGitHubContributions {
     this.#tokens = props.config.tokens;
     this.#concurrency = props.config.import?.concurrency ?? DEFAULT_CONCURRENCY;
     this.#maxRetries = props.config.import?.maxRetries ?? DEFAULT_MAX_RETRIES;
+    this.#pageSize = props.config.import?.pageSize;
+    this.#rateLimitGracePeriod = props.config.import?.rateLimitGracePeriod;
     this.#skippedOrganizations = props.config.import?.skip?.organizations ?? [];
     this.#skippedRepositories = props.config.import?.skip?.repositories ?? [];
     this.#data = props.data ?? {
@@ -440,6 +444,8 @@ export class GetAllGitHubContributions {
         const accountData = this.#data.accounts[accountLogin];
         const githubApi = new GitHubApi({
           token: this.#tokens[accountLogin],
+          pageSize: this.#pageSize,
+          rateLimitGracePeriod: this.#rateLimitGracePeriod,
           onRateLimitChange: (rateLimit) => {
             accountProgress.rateLimit = rateLimit;
           },

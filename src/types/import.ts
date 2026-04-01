@@ -7,6 +7,8 @@ export interface ImportConfig {
   import?: {
     concurrency?: number;
     maxRetries?: number;
+    pageSize?: number;
+    rateLimitGracePeriod?: number;
     skip?: {
       organizations?: string[];
       repositories?: string[];

@@ -6,6 +6,8 @@
   "import": {
     "concurrency": 10,
     "maxRetries": 2,
+    "pageSize": 50,
+    "rateLimitGracePeriod": 1000,
     "skip": {
       "organizations": ["exampleOrganization"],
       "repositories": ["owner/repository"]

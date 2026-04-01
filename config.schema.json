@@ -34,6 +34,19 @@
         "maximum": 10,
         "default": 2
       },
+      "pageSize": {
+        "type": "integer",
+        "description": "Number of items per page for GraphQL pagination",
+        "minimum": 1,
+        "maximum": 100,
+        "default": 50
+      },
+      "rateLimitGracePeriod": {
+        "type": "integer",
+        "description": "Grace period in milliseconds added when waiting for rate limit reset",
+        "minimum": 0,
+        "default": 1000
+      },
       "skip": {
         "type": "object",
         "description": "Skip certain organizations and repositories",

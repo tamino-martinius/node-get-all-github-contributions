@@ -31,10 +31,12 @@ import { Logger } from "./util/Logger.js";
 interface GitHubApiOptions {
   token: string;
   apiUrl?: string;
+  pageSize?: number;
+  rateLimitGracePeriod?: number;
   onRateLimitChange?: (rateLimit: RateLimit) => void;
 }
 
-const RATE_LIMIT_GRACE_PERIOD = 1_000; // 1 second
+const DEFAULT_RATE_LIMIT_GRACE_PERIOD = 1_000; // 1 second
 const DEFAULT_PAGE_SIZE = 50; // 100 items per page
 
 export class GitHubApi {
@@ -44,12 +46,16 @@ export class GitHubApi {
   #user?: ViewerResponse["viewer"];
   #rateLimit: RateLimit = {};
   #onRateLimitChange: (rateLimit: RateLimit) => void;
+  #pageSize: number;
+  #rateLimitGracePeriod: number;
 
   constructor(config: GitHubApiOptions) {
     this.#token = config.token;
     if (config.apiUrl) this.#apiUrl = config.apiUrl;
     this.#url = new URL(this.#apiUrl);
     this.#onRateLimitChange = config.onRateLimitChange ?? (() => {});
+    this.#pageSize = config.pageSize ?? DEFAULT_PAGE_SIZE;
+    this.#rateLimitGracePeriod = config.rateLimitGracePeriod ?? DEFAULT_RATE_LIMIT_GRACE_PERIOD;
   }
 
   async #getToken(): Promise<string> {
@@ -74,7 +80,7 @@ export class GitHubApi {
         },
         (this.#rateLimit.resetTimestamp ?? 0) -
           Date.now() +
-          RATE_LIMIT_GRACE_PERIOD,
+          this.#rateLimitGracePeriod,
       );
     });
   }
@@ -234,7 +240,7 @@ export class GitHubApi {
     slot: string,
     asc: boolean = true,
   ): string {
-    let pageQuery = `${asc ? "first" : "last"}: ${DEFAULT_PAGE_SIZE}`;
+    let pageQuery = `${asc ? "first" : "last"}: ${this.#pageSize}`;
     if (cursor) {
       pageQuery += `, ${asc ? "after" : "before"}: "${cursor}"`;
     }
