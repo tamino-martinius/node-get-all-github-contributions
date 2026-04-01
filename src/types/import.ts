@@ -59,7 +59,7 @@ export interface Branch {
 
 export interface Repository {
   name: string;
-  description?: string;
+  description: string;
   stargazerCount: number;
   forkCount: number;
   isPrivate: boolean;
