@@ -75,6 +75,43 @@ The synced `ImportData` contains:
 - **languageColors** - Map of language names to their GitHub colors
 - **importState** - Sync progress and timestamps for incremental syncs
 
+Each user profile includes:
+
+```typescript
+interface User {
+  id: string;
+  login: string;
+  name: string;
+  bio: string;
+  avatarUrl: string;
+  url: string;
+  gistCount: number;
+  followerCount: number;
+  followingCount: number;
+  commitCommentCount: number;
+  issueCommentCount: number;
+  commitCommentTimestamps: number[];
+  issueCommentTimestamps: number[];
+}
+```
+
+Each repository includes:
+
+```typescript
+interface Repository {
+  name: string;
+  description?: string;
+  stargazerCount: number;
+  forkCount: number;
+  isPrivate: boolean;
+  url: string;
+  homepageUrl?: string;
+  languages: string[];
+  owner: string;
+  defaultBranch: string;
+}
+```
+
 Each commit includes:
 
 ```typescript
@@ -89,11 +126,12 @@ interface Commit {
 
 ## How It Works
 
-1. Fetches user profile and organizations for each configured account
-2. Discovers all repositories (owned, collaborator, and organization member)
-3. Enumerates branches per repository
-4. Fetches commits authored by the authenticated user per branch
-5. Skips repositories and branches that haven't changed since the last sync
+1. Fetches user profile (including bio, follower/following counts, gist count) and organizations for each configured account
+2. Syncs commit comment and issue comment timestamps
+3. Discovers all repositories (owned, collaborator, and organization member) with metadata (description, stars, forks, homepage)
+4. Enumerates branches per repository
+5. Fetches commits authored by the authenticated user per branch
+6. Skips repositories and branches that haven't changed since the last sync
 
 All API calls use pagination and respect GitHub's rate limits with automatic retry and backoff.
 
