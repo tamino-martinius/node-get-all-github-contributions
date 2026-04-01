@@ -55,7 +55,8 @@ export class GitHubApi {
     this.#url = new URL(this.#apiUrl);
     this.#onRateLimitChange = config.onRateLimitChange ?? (() => {});
     this.#pageSize = config.pageSize ?? DEFAULT_PAGE_SIZE;
-    this.#rateLimitGracePeriod = config.rateLimitGracePeriod ?? DEFAULT_RATE_LIMIT_GRACE_PERIOD;
+    this.#rateLimitGracePeriod =
+      config.rateLimitGracePeriod ?? DEFAULT_RATE_LIMIT_GRACE_PERIOD;
   }
 
   async #getToken(): Promise<string> {
