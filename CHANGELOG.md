@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.3
+
+- Add configurable `pageSize` and `rateLimitGracePeriod` for the import script
+
 ## 0.1.2
 
 - Implement configuration to skip repositories / organization
