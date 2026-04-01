@@ -24,6 +24,15 @@ export interface AccountConfig {
 export interface User {
   id: string;
   login: string;
+  name: string;
+  bio: string;
+  gistCount: number;
+  followerCount: number;
+  followingCount: number;
+  commitCommentCount: number;
+  issueCommentCount: number;
+  commitCommentTimestamps: number[];
+  issueCommentTimestamps: number[];
   avatarUrl: string;
   url: string;
 }
@@ -50,9 +59,13 @@ export interface Branch {
 
 export interface Repository {
   name: string;
+  description?: string;
+  stargazerCount: number;
+  forkCount: number;
   isPrivate: boolean;
   lastCommitTimestamp?: number;
   url: string;
+  homepageUrl?: string;
   languages: string[];
   owner: string;
   defaultBranch: string;

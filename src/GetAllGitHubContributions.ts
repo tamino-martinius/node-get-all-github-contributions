@@ -186,12 +186,51 @@ export class GetAllGitHubContributions {
     Logger.log("Syncing account base data for", accountLogin);
     accountProgress.status = "in-progress";
     const user = await githubApi.getCurrentUser();
-    accountData.user = user;
+    accountData.user = {
+      id: user.id,
+      login: user.login,
+      name: user.name ?? "",
+      bio: user.bio ?? "",
+      gistCount: user.gists.totalCount,
+      followerCount: user.followers.totalCount,
+      followingCount: user.following.totalCount,
+      commitCommentCount: accountData.user?.commitCommentCount ?? 0,
+      issueCommentCount: accountData.user?.issueCommentCount ?? 0,
+      commitCommentTimestamps: accountData.user?.commitCommentTimestamps ?? [],
+      issueCommentTimestamps: accountData.user?.issueCommentTimestamps ?? [],
+      avatarUrl: user.avatarUrl,
+      url: user.url,
+    };
     const organizationNodes = await githubApi.getAllOrganizationNodes();
     for (const organizationNode of organizationNodes) {
       accountData.organizations[organizationNode.id] = organizationNode;
     }
-    this.#printProgressDot();
+    if (
+      accountData.user.commitCommentCount !== user.commitComments.totalCount
+    ) {
+      const commitCommentNodes = await githubApi.getAllCommitCommentNodes();
+      accountData.user.commitCommentTimestamps = [
+        ...new Set([
+          ...accountData.user.commitCommentTimestamps,
+          ...commitCommentNodes.map((commitCommentNode) =>
+            new Date(commitCommentNode.createdAt).getTime(),
+          ),
+        ]),
+      ];
+      accountData.user.commitCommentCount = user.commitComments.totalCount;
+    }
+    if (accountData.user.issueCommentCount !== user.issueComments.totalCount) {
+      const issueCommentNodes = await githubApi.getAllIssueCommentNodes();
+      accountData.user.issueCommentTimestamps = [
+        ...new Set([
+          ...accountData.user.issueCommentTimestamps,
+          ...issueCommentNodes.map((issueCommentNode) =>
+            new Date(issueCommentNode.createdAt).getTime(),
+          ),
+        ]),
+      ];
+      accountData.user.issueCommentCount = user.issueComments.totalCount;
+    }
     return {
       accountLogin,
       accountProgress,
@@ -228,8 +267,12 @@ export class GetAllGitHubContributions {
       }
       accountData.repositories[repositoryNode.id] = {
         name: repositoryNode.name,
+        description: repositoryNode.description ?? "",
+        stargazerCount: repositoryNode.stargazerCount,
+        forkCount: repositoryNode.forkCount,
         isPrivate: repositoryNode.isPrivate,
         url: repositoryNode.url,
+        homepageUrl: repositoryNode.homepageUrl,
         languages: repositoryNode.languages.nodes.map(
           (language) => language.name,
         ),
@@ -264,8 +307,12 @@ export class GetAllGitHubContributions {
         }
         accountData.repositories[repositoryNode.id] = {
           name: repositoryNode.name,
+          description: repositoryNode.description ?? "",
+          stargazerCount: repositoryNode.stargazerCount,
+          forkCount: repositoryNode.forkCount,
           isPrivate: repositoryNode.isPrivate,
           url: repositoryNode.url,
+          homepageUrl: repositoryNode.homepageUrl,
           languages: repositoryNode.languages.nodes.map(
             (language) => language.name,
           ),
@@ -281,7 +328,6 @@ export class GetAllGitHubContributions {
         currentRepositoryNodes[repositoryNode.id] = repositoryNode;
       }
     }
-    this.#printProgressDot();
     return Object.values(currentRepositoryNodes).map((repositoryNode) => ({
       accountLogin,
       accountProgress,
@@ -315,7 +361,6 @@ export class GetAllGitHubContributions {
       accountProgress.progressStats.current.branchCount += Object.values(
         currentRepositoryData.branches,
       ).length;
-      this.#printProgressDot();
       return [];
     }
     const branchNodes =
@@ -338,7 +383,6 @@ export class GetAllGitHubContributions {
     currentRepositoryData.lastCommitTimestamp = lastCommitTimestamp;
     accountProgress.progressStats.current.repoCount += 1;
 
-    this.#printProgressDot();
     return branchNodes.map((branchNode) => ({
       accountLogin,
       accountProgress,
@@ -371,7 +415,6 @@ export class GetAllGitHubContributions {
       currentBranchData.latestCommitOid === branchNode.target.oid;
     if (hasNoUpdates) {
       accountProgress.progressStats.current.branchCount += 1;
-      this.#printProgressDot();
       return;
     }
 
@@ -408,7 +451,6 @@ export class GetAllGitHubContributions {
     // Update the latest commit oid after all commits are synced
     currentBranchData.latestCommitOid = branchNode.target.oid;
     accountProgress.progressStats.current.branchCount += 1;
-    this.#printProgressDot();
   }
 
   async sync() {
@@ -449,6 +491,7 @@ export class GetAllGitHubContributions {
           onRateLimitChange: (rateLimit) => {
             accountProgress.rateLimit = rateLimit;
           },
+          onApiCall: this.#printProgressDot,
         });
         return {
           accountLogin,

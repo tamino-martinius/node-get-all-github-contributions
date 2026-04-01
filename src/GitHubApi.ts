@@ -11,10 +11,20 @@ import type {
   CommitsPageResponse,
 } from "./types/graphql/commit.js";
 import type {
+  CommitCommentNode,
+  CommitCommentsPage,
+  CommitCommentsPageResponse,
+} from "./types/graphql/commitComment.js";
+import type {
   PaginatedResponse,
   RateLimit,
   ViewerResponse,
 } from "./types/graphql/general.js";
+import type {
+  IssueCommentNode,
+  IssueCommentsPage,
+  IssueCommentsPageResponse,
+} from "./types/graphql/issueComment.js";
 import type {
   OrganizationNode,
   OrganizationsPage,
@@ -34,6 +44,13 @@ interface GitHubApiOptions {
   pageSize?: number;
   rateLimitGracePeriod?: number;
   onRateLimitChange?: (rateLimit: RateLimit) => void;
+  onApiCall?: ({
+    query,
+    variables,
+  }: {
+    query: string;
+    variables?: Record<string, unknown>;
+  }) => void;
 }
 
 const DEFAULT_RATE_LIMIT_GRACE_PERIOD = 1_000; // 1 second
@@ -45,7 +62,8 @@ export class GitHubApi {
   #url: URL;
   #user?: ViewerResponse["viewer"];
   #rateLimit: RateLimit = {};
-  #onRateLimitChange: (rateLimit: RateLimit) => void;
+  #onRateLimitChange?: GitHubApiOptions["onRateLimitChange"];
+  #onApiCall?: GitHubApiOptions["onApiCall"];
   #pageSize: number;
   #rateLimitGracePeriod: number;
 
@@ -53,7 +71,8 @@ export class GitHubApi {
     this.#token = config.token;
     if (config.apiUrl) this.#apiUrl = config.apiUrl;
     this.#url = new URL(this.#apiUrl);
-    this.#onRateLimitChange = config.onRateLimitChange ?? (() => {});
+    this.#onRateLimitChange = config.onRateLimitChange;
+    this.#onApiCall = config.onApiCall;
     this.#pageSize = config.pageSize ?? DEFAULT_PAGE_SIZE;
     this.#rateLimitGracePeriod =
       config.rateLimitGracePeriod ?? DEFAULT_RATE_LIMIT_GRACE_PERIOD;
@@ -86,7 +105,7 @@ export class GitHubApi {
     });
   }
 
-  async #query<TRequest, TResponse>(
+  async #query<TRequest extends Record<string, unknown>, TResponse>(
     query: string,
     variables?: TRequest,
   ): Promise<TResponse> {
@@ -94,6 +113,8 @@ export class GitHubApi {
       query,
       variables,
     };
+
+    this.#onApiCall?.({ query, variables });
 
     Logger.send({
       log: [
@@ -170,7 +191,7 @@ export class GitHubApi {
                   ? Number.parseInt(rateLimitUsed, 10)
                   : undefined,
             };
-            this.#onRateLimitChange(this.#rateLimit);
+            this.#onRateLimitChange?.(this.#rateLimit);
             if (!json.data) {
               if (json.errors) {
                 Logger.error("[query]", "<=", json.errors);
@@ -223,9 +244,26 @@ export class GitHubApi {
         query {
           viewer {
             id
+            name
+            bio
             login
             avatarUrl
             url
+            gists {
+              totalCount
+            }
+            followers {
+              totalCount
+            }
+            following {
+              totalCount
+            }
+            commitComments {
+              totalCount
+            }
+            issueComments {
+              totalCount
+            }
           }
         }
       `,
@@ -263,7 +301,7 @@ export class GitHubApi {
   }
 
   async #getAllPaginatedNodes<
-    TRequest,
+    TRequest extends Record<string, unknown>,
     TResponse,
     TResponseNode,
     TPaginatedResponse extends PaginatedResponse<TResponseNode>,
@@ -301,6 +339,52 @@ export class GitHubApi {
       nodes.push(...paginatedResponse.nodes);
     }
     return nodes;
+  }
+
+  public async getAllCommitCommentNodes() {
+    return this.#getAllPaginatedNodes<
+      Record<string, never>,
+      CommitCommentsPageResponse,
+      CommitCommentNode,
+      CommitCommentsPage
+    >({
+      query: `
+        query {
+          viewer {
+            {{pageQuery}}
+          }
+        }
+      `,
+      resource: "commitComments",
+      filter: "",
+      nodeQuery: `
+        createdAt
+      `,
+      select: (response) => response.viewer.commitComments,
+    });
+  }
+
+  public async getAllIssueCommentNodes() {
+    return this.#getAllPaginatedNodes<
+      Record<string, never>,
+      IssueCommentsPageResponse,
+      IssueCommentNode,
+      IssueCommentsPage
+    >({
+      query: `
+        query {
+          viewer {
+            {{pageQuery}}
+          }
+        }
+      `,
+      resource: "issueComments",
+      filter: "",
+      nodeQuery: `
+        createdAt
+      `,
+      select: (response) => response.viewer.issueComments,
+    });
   }
 
   public async getAllOrganizationNodes() {
@@ -349,9 +433,13 @@ export class GitHubApi {
       nodeQuery: `
         id
         name
+        description
         isPrivate
         pushedAt
         url
+        homepageUrl
+        stargazerCount
+        forkCount
         languages(first: 5) {
           nodes {
             name

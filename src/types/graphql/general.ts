@@ -9,9 +9,26 @@ export interface RateLimit {
 export interface ViewerResponse {
   viewer: {
     id: string;
+    name?: string;
+    bio?: string;
     login: string;
     avatarUrl: string;
     url: string;
+    gists: {
+      totalCount: number;
+    };
+    followers: {
+      totalCount: number;
+    };
+    following: {
+      totalCount: number;
+    };
+    commitComments: {
+      totalCount: number;
+    };
+    issueComments: {
+      totalCount: number;
+    };
   };
 }
 
