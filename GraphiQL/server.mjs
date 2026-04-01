@@ -6,7 +6,8 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const configPath = resolve(__dirname, "..", "config.json");
 const config = JSON.parse(readFileSync(configPath, "utf-8"));
-const token = config.accounts[0].token;
+const usernames = Object.keys(config.tokens);
+const token = config.tokens[usernames[0]];
 
 const html = readFileSync(join(__dirname, "index.html"), "utf-8").replace(
   "__GITHUB_TOKEN__",
