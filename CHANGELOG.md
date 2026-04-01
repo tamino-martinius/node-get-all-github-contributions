@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.5
+
+- Fix `Repository.description` type from optional to required
+
 ## 0.1.4
 
 - Add extended user profile fields: `name`, `bio`, `gistCount`, `followerCount`, `followingCount`
