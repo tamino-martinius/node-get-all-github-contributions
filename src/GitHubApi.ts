@@ -35,7 +35,7 @@ interface GitHubApiOptions {
 }
 
 const RATE_LIMIT_GRACE_PERIOD = 1_000; // 1 second
-const DEFAULT_PAGE_SIZE = 100; // 100 items per page
+const DEFAULT_PAGE_SIZE = 50; // 100 items per page
 
 export class GitHubApi {
   #token: string;
