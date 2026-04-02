@@ -458,7 +458,7 @@ export class GitHubApi {
   }
 
   public async getAllRepositoryNodesByOrganization(
-    organization: OrganizationNode,
+    organization: Pick<OrganizationNode, "login">,
   ) {
     return this.#getAllPaginatedNodes<
       { organization: string },
@@ -501,7 +501,9 @@ export class GitHubApi {
     });
   }
 
-  public async getAllBranchNodesByRepository(repository: RepositoryNode) {
+  public async getAllBranchNodesByRepository(
+    repository: Pick<RepositoryNode, "owner" | "name">,
+  ) {
     return this.#getAllPaginatedNodes<
       { owner: string; name: string },
       BranchesPageResponse,
@@ -535,8 +537,8 @@ export class GitHubApi {
   }
 
   public async getAllCommitNodesByBranch(
-    repository: RepositoryNode,
-    branch: BranchNode,
+    repository: Pick<RepositoryNode, "owner" | "name">,
+    branch: Pick<BranchNode, "name">,
   ) {
     const user = await this.getCurrentUser();
     return this.#getAllPaginatedNodes<
