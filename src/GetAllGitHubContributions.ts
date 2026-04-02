@@ -340,7 +340,10 @@ export class GetAllGitHubContributions {
     }));
   }
 
-  async #syncBranches(props: SyncBranchesProps): Promise<SyncCommitsProps[]> {
+  async #syncBranches(
+    props: SyncBranchesProps,
+    options: { recheck: boolean } = { recheck: false },
+  ): Promise<SyncCommitsProps[]> {
     const {
       accountLogin,
       accountProgress,
@@ -359,7 +362,7 @@ export class GetAllGitHubContributions {
     const hasNoUpdates =
       currentRepositoryData.lastCommitTimestamp &&
       currentRepositoryData.lastCommitTimestamp === lastCommitTimestamp;
-    if (isSkipped || hasNoUpdates) {
+    if (isSkipped || (hasNoUpdates && !options.recheck)) {
       accountProgress.progressStats.current.repoCount += 1;
       accountProgress.progressStats.current.branchCount += Object.values(
         currentRepositoryData.branches,
@@ -398,7 +401,7 @@ export class GetAllGitHubContributions {
 
   async #syncCommits(
     props: SyncCommitsProps,
-    recheck: boolean = false,
+    options: { recheck: boolean } = { recheck: false },
   ): Promise<void> {
     const {
       accountLogin,
@@ -419,7 +422,7 @@ export class GetAllGitHubContributions {
     const hasNoUpdates =
       currentBranchData.latestCommitOid &&
       currentBranchData.latestCommitOid === branchNode.target.oid;
-    if (hasNoUpdates && !recheck) {
+    if (hasNoUpdates && !options.recheck) {
       accountProgress.progressStats.current.branchCount += 1;
       return;
     }
@@ -476,19 +479,21 @@ export class GetAllGitHubContributions {
     // Priotize Branches without commits
     const commitSyncPropsWithoutCommits = this.#shuffleArray(
       this.#getPropsWithRemainingRateLimit(
-        commitSyncProps.filter(
-          (commitSyncProp) =>
-            Object.keys(
-              commitSyncProp.accountData.repositories[
-                commitSyncProp.repositoryNode.id
-              ].commits[commitSyncProp.branchNode.id],
-            ).length === 0,
-        ),
+        commitSyncProps.filter((commitSyncProp) => {
+          const currentRepository =
+            commitSyncProp.accountData.repositories[
+              commitSyncProp.repositoryNode.id
+            ];
+          return (
+            currentRepository &&
+            Object.keys(currentRepository.commits).length === 0
+          );
+        }),
       ),
     );
     // Process one by one to avoid hitting the rate limit on many in parallel
     for (const commitSyncProp of commitSyncPropsWithoutCommits) {
-      await this.#syncCommits(commitSyncProp, true);
+      await this.#syncCommits(commitSyncProp, { recheck: true });
     }
 
     // Recheck all other branches
@@ -507,7 +512,7 @@ export class GetAllGitHubContributions {
     );
     // Process one by one to avoid hitting the rate limit on many in parallel
     for (const commitSyncProp of commitSyncPropsWithCommits) {
-      await this.#syncCommits(commitSyncProp, true);
+      await this.#syncCommits(commitSyncProp, { recheck: true });
     }
   }
 
@@ -592,6 +597,15 @@ export class GetAllGitHubContributions {
     this.#clearProgressDot();
 
     if (this.#recheckWithRemainingRateLimit) {
+      console.log("Rechecking branches");
+      // Refetch all branches (including the ones which were detected to have no updates)
+      const commitSyncProps = await this.#runFlattenParallel({
+        items: branchSyncProps,
+        callback: (branchSyncProp) =>
+          this.#syncBranches(branchSyncProp, { recheck: true }),
+      });
+      this.#clearProgressDot();
+
       console.log("Rechecking commits");
       await this.#recheckCommits(commitSyncProps);
       this.#clearProgressDot();
