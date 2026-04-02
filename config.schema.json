@@ -47,6 +47,11 @@
         "minimum": 0,
         "default": 1000
       },
+      "recheckWithRemainingRateLimit": {
+        "type": "boolean",
+        "description": "Recheck branches for new commits using remaining rate limit after initial sync",
+        "default": false
+      },
       "skip": {
         "type": "object",
         "description": "Skip certain organizations and repositories",

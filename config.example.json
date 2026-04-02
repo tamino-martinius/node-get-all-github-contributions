@@ -8,6 +8,7 @@
     "maxRetries": 2,
     "pageSize": 50,
     "rateLimitGracePeriod": 1000,
+    "recheckWithRemainingRateLimit": false,
     "skip": {
       "organizations": ["exampleOrganization"],
       "repositories": ["owner/repository"]

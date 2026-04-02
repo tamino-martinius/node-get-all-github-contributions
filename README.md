@@ -60,6 +60,7 @@ Data is saved to `data/data.json` and persisted every 30 seconds during the sync
 | `import.maxRetries` | `number` | `2` | Retry attempts for failed requests |
 | `import.pageSize` | `number` | `50` | Number of items per page for GraphQL pagination |
 | `import.rateLimitGracePeriod` | `number` | `1000` | Grace period in ms added when waiting for rate limit reset |
+| `import.recheckWithRemainingRateLimit` | `boolean` | `false` | Recheck branches for new commits using remaining rate limit after initial sync |
 | `import.skip.organizations` | `string[]` | `[]` | Organization logins to skip |
 | `import.skip.repositories` | `string[]` | `[]` | Repositories to skip (`owner/repo`) |
 

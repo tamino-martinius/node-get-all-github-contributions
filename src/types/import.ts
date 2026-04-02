@@ -9,6 +9,7 @@ export interface ImportConfig {
     maxRetries?: number;
     pageSize?: number;
     rateLimitGracePeriod?: number;
+    recheckWithRemainingRateLimit?: boolean;
     skip?: {
       organizations?: string[];
       repositories?: string[];

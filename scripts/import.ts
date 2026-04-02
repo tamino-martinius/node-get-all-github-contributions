@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { GetAllGitHubContributions } from "@/GetAllGitHubContributions";
 import type { ImportConfig, ImportData } from "@/types/import";
-import { GetAllGitHubContributions } from "../src/GetAllGitHubContributions";
 
 const SAVE_INTERVAL = 30_000;
 

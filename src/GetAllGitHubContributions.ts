@@ -54,6 +54,7 @@ export class GetAllGitHubContributions {
   #rateLimitGracePeriod?: number;
   #skippedOrganizations: string[];
   #skippedRepositories: string[];
+  #recheckWithRemainingRateLimit: boolean;
   #tokens: Record<string, string>;
 
   constructor(props: {
@@ -64,6 +65,8 @@ export class GetAllGitHubContributions {
     this.#concurrency = props.config.import?.concurrency ?? DEFAULT_CONCURRENCY;
     this.#maxRetries = props.config.import?.maxRetries ?? DEFAULT_MAX_RETRIES;
     this.#pageSize = props.config.import?.pageSize;
+    this.#recheckWithRemainingRateLimit =
+      props.config.import?.recheckWithRemainingRateLimit ?? false;
     this.#rateLimitGracePeriod = props.config.import?.rateLimitGracePeriod;
     this.#skippedOrganizations = props.config.import?.skip?.organizations ?? [];
     this.#skippedRepositories = props.config.import?.skip?.repositories ?? [];
@@ -393,7 +396,10 @@ export class GetAllGitHubContributions {
     }));
   }
 
-  async #syncCommits(props: SyncCommitsProps): Promise<void> {
+  async #syncCommits(
+    props: SyncCommitsProps,
+    recheck: boolean = false,
+  ): Promise<void> {
     const {
       accountLogin,
       accountProgress,
@@ -413,7 +419,7 @@ export class GetAllGitHubContributions {
     const hasNoUpdates =
       currentBranchData.latestCommitOid &&
       currentBranchData.latestCommitOid === branchNode.target.oid;
-    if (hasNoUpdates) {
+    if (hasNoUpdates && !recheck) {
       accountProgress.progressStats.current.branchCount += 1;
       return;
     }
@@ -451,6 +457,58 @@ export class GetAllGitHubContributions {
     // Update the latest commit oid after all commits are synced
     currentBranchData.latestCommitOid = branchNode.target.oid;
     accountProgress.progressStats.current.branchCount += 1;
+  }
+
+  #getPropsWithRemainingRateLimit(
+    commitSyncProps: SyncCommitsProps[],
+  ): SyncCommitsProps[] {
+    return commitSyncProps.filter(
+      (commitSyncProp) =>
+        (commitSyncProp.accountProgress.rateLimit.remaining ?? 0) > 0,
+    );
+  }
+
+  #shuffleArray<T>(array: T[]): T[] {
+    return array.sort(() => Math.random() - 0.5);
+  }
+
+  async #recheckCommits(commitSyncProps: SyncCommitsProps[]): Promise<void> {
+    // Priotize Branches without commits
+    const commitSyncPropsWithoutCommits = this.#shuffleArray(
+      this.#getPropsWithRemainingRateLimit(
+        commitSyncProps.filter(
+          (commitSyncProp) =>
+            Object.keys(
+              commitSyncProp.accountData.repositories[
+                commitSyncProp.repositoryNode.id
+              ].commits[commitSyncProp.branchNode.id],
+            ).length === 0,
+        ),
+      ),
+    );
+    // Process one by one to avoid hitting the rate limit on many in parallel
+    for (const commitSyncProp of commitSyncPropsWithoutCommits) {
+      await this.#syncCommits(commitSyncProp, true);
+    }
+
+    // Recheck all other branches
+    const commitSyncPropsWithoutCommitIds = new Set(
+      commitSyncPropsWithoutCommits.map(
+        (commitSyncProp) => commitSyncProp.branchNode.id,
+      ),
+    );
+    const commitSyncPropsWithCommits = this.#shuffleArray(
+      this.#getPropsWithRemainingRateLimit(
+        commitSyncProps.filter(
+          (commitSyncProp) =>
+            !commitSyncPropsWithoutCommitIds.has(commitSyncProp.branchNode.id),
+        ),
+      ),
+    );
+    // Process one by one to avoid hitting the rate limit on many in parallel
+    for (const commitSyncProp of commitSyncPropsWithCommits) {
+      await this.#syncCommits(commitSyncProp, true);
+    }
   }
 
   async sync() {
@@ -518,7 +576,7 @@ export class GetAllGitHubContributions {
     this.#clearProgressDot();
 
     console.log("Syncing branches");
-    const historySyncProps = await this.#runFlattenParallel({
+    const commitSyncProps = await this.#runFlattenParallel({
       items: branchSyncProps,
       callback: this.#syncBranches.bind(this),
     });
@@ -526,12 +584,18 @@ export class GetAllGitHubContributions {
 
     console.log("Syncing commits");
     await runParallel({
-      items: historySyncProps,
+      items: commitSyncProps,
       callback: this.#syncCommits.bind(this),
       maxConcurrency: this.#concurrency,
       maxRetries: this.#maxRetries,
     });
     this.#clearProgressDot();
+
+    if (this.#recheckWithRemainingRateLimit) {
+      console.log("Rechecking commits");
+      await this.#recheckCommits(commitSyncProps);
+      this.#clearProgressDot();
+    }
 
     this.#data.importState.lastFullImportTimestamp = Date.now();
     Object.values(accountProgress).forEach((accountProgress) => {
