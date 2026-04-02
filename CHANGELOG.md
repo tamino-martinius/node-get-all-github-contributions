@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.6
+
+- Add `recheckWithRemainingRateLimit` import option to recheck branches for new commits using remaining rate limit after initial sync
+
 ## 0.1.5
 
 - Fix `Repository.description` type from optional to required
