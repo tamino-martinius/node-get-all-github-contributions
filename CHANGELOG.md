@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.7
+
+- Extend recheck algorithm to also recheck all branches
+
 ## 0.1.6
 
 - Add `recheckWithRemainingRateLimit` import option to recheck branches for new commits using remaining rate limit after initial sync

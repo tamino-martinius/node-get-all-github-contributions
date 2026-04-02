@@ -1,6 +1,6 @@
 {
   "name": "get-all-github-contributions",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Get all GitHub contributions",
   "type": "module",
   "main": "dist/index.js",
