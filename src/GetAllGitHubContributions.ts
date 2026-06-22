@@ -139,6 +139,23 @@ export class GetAllGitHubContributions {
     );
   }
 
+  // Order branches so those never synced before (no latestCommitOid) come
+  // first. Without this, a repository stranded by an earlier interrupted run
+  // (e.g. an org repo late in the discovery queue) can be starved indefinitely
+  // by a run that ends — rate limit or timeout — before reaching it.
+  #prioritizeUnsyncedBranches(
+    commitSyncProps: SyncCommitsProps[],
+  ): SyncCommitsProps[] {
+    const isUnsynced = (props: SyncCommitsProps) =>
+      props.accountData.repositories[props.repositoryNode.id]?.branches[
+        props.branchNode.id
+      ]?.latestCommitOid === undefined;
+    return [
+      ...commitSyncProps.filter(isUnsynced),
+      ...commitSyncProps.filter((props) => !isUnsynced(props)),
+    ];
+  }
+
   #printProgressDot() {
     if (["log", "debug"].includes(Logger.logLevel)) {
       // Don't print progress dots in log or debug mode
@@ -699,7 +716,9 @@ export class GetAllGitHubContributions {
 
     console.log("Syncing commits");
     await runParallel({
-      items: commitSyncProps,
+      // Never-synced branches first so stranded repos are not starved by a run
+      // that ends before reaching them.
+      items: this.#prioritizeUnsyncedBranches(commitSyncProps),
       callback: this.#syncCommits.bind(this),
       maxConcurrency: this.#concurrency,
       maxRetries: this.#maxRetries,
