@@ -55,6 +55,9 @@ export class GetAllGitHubContributions {
   #skippedOrganizations: string[];
   #skippedRepositories: string[];
   #recheckWithRemainingRateLimit: boolean;
+  #branchRecheckBuckets: number;
+  #incrementalHistory: boolean;
+  #activeBranchBucket = 0;
   #tokens: Record<string, string>;
 
   constructor(props: {
@@ -67,6 +70,8 @@ export class GetAllGitHubContributions {
     this.#pageSize = props.config.import?.pageSize;
     this.#recheckWithRemainingRateLimit =
       props.config.import?.recheckWithRemainingRateLimit ?? false;
+    this.#branchRecheckBuckets = props.config.import?.branchRecheckBuckets ?? 0;
+    this.#incrementalHistory = props.config.import?.incrementalHistory ?? false;
     this.#rateLimitGracePeriod = props.config.import?.rateLimitGracePeriod;
     this.#skippedOrganizations = props.config.import?.skip?.organizations ?? [];
     this.#skippedRepositories = props.config.import?.skip?.repositories ?? [];
@@ -80,24 +85,58 @@ export class GetAllGitHubContributions {
   #runParallel<T, U>(props: {
     items: T[];
     callback: (item: T) => Promise<U>;
+    continueOnError?: boolean;
   }): Promise<U[]> {
     return runParallel({
       items: props.items,
       callback: props.callback,
       maxConcurrency: this.#concurrency,
       maxRetries: this.#maxRetries,
+      continueOnError: props.continueOnError,
     });
   }
 
   async #runFlattenParallel<T, U>(props: {
     items: T[];
     callback: (item: T) => Promise<U[]>;
+    continueOnError?: boolean;
   }): Promise<U[]> {
     const results = await this.#runParallel({
       items: props.items,
       callback: props.callback,
+      continueOnError: props.continueOnError,
     });
+    // Items that failed (and were skipped via continueOnError) leave holes in
+    // the results array; flat() drops them, so downstream stages only see the
+    // work that actually succeeded.
     return results.flat();
+  }
+
+  // Stable bucket assignment for a branch. djb2 over the id, then the murmur3
+  // fmix32 finalizer so the low bits are well mixed (plain djb2 % buckets is
+  // badly skewed for power-of-two bucket counts). Stable across runs because
+  // branch node ids are stable.
+  #bucketOf(id: string, buckets: number): number {
+    let hash = 5381;
+    for (let i = 0; i < id.length; i++) {
+      hash = ((hash << 5) + hash + id.charCodeAt(i)) >>> 0;
+    }
+    hash ^= hash >>> 16;
+    hash = Math.imul(hash, 0x85ebca6b);
+    hash ^= hash >>> 13;
+    hash = Math.imul(hash, 0xc2b2ae35);
+    hash ^= hash >>> 16;
+    return (hash >>> 0) % buckets;
+  }
+
+  // A repository is fully synced once every recorded branch has had its commits
+  // fetched at least once (latestCommitOid set). A repository with branches
+  // still awaiting their first fetch is re-enumerated every run so nothing is
+  // permanently stranded. (An empty branch set is vacuously fully synced.)
+  #isRepositoryFullySynced(repository: Repository): boolean {
+    return Object.values(repository.branches).every(
+      (branch) => branch.latestCommitOid !== undefined,
+    );
   }
 
   #printProgressDot() {
@@ -360,9 +399,18 @@ export class GetAllGitHubContributions {
         `${repositoryNode.owner.login}/${repositoryNode.name}`,
       );
     const hasNoUpdates =
-      currentRepositoryData.lastCommitTimestamp &&
+      currentRepositoryData.lastCommitTimestamp != null &&
       currentRepositoryData.lastCommitTimestamp === lastCommitTimestamp;
-    if (isSkipped || (hasNoUpdates && !options.recheck)) {
+    // Skip enumeration only when nothing has been pushed since the last run AND
+    // the repository is already fully synced. A not-fully-synced repository
+    // (e.g. branches whose commits were deferred by rotation or never fetched)
+    // is always re-enumerated so its outstanding branches are not stranded.
+    if (
+      isSkipped ||
+      (hasNoUpdates &&
+        !options.recheck &&
+        this.#isRepositoryFullySynced(currentRepositoryData))
+    ) {
       accountProgress.progressStats.current.repoCount += 1;
       accountProgress.progressStats.current.branchCount += Object.values(
         currentRepositoryData.branches,
@@ -382,6 +430,7 @@ export class GetAllGitHubContributions {
       currentRepositoryData.branches[branchNode.id] = {
         name: branchNode.name,
         latestCommitOid: currentBranchData?.latestCommitOid,
+        latestCommitTimestamp: currentBranchData?.latestCommitTimestamp,
       };
     }
 
@@ -389,7 +438,26 @@ export class GetAllGitHubContributions {
     currentRepositoryData.lastCommitTimestamp = lastCommitTimestamp;
     accountProgress.progressStats.current.repoCount += 1;
 
-    return branchNodes.map((branchNode) => ({
+    // Decide which branches to forward for commit syncing this run. The default
+    // branch is always included; non-default branches only when their stable
+    // bucket matches the active bucket for this run, so all branches are covered
+    // within `#branchRecheckBuckets` runs. Rechecks and disabled rotation
+    // (buckets < 2) forward every branch.
+    const rotationActive = this.#branchRecheckBuckets >= 2 && !options.recheck;
+    const forwardedBranchNodes = rotationActive
+      ? branchNodes.filter(
+          (branchNode) =>
+            branchNode.name === currentRepositoryData.defaultBranch ||
+            this.#bucketOf(branchNode.id, this.#branchRecheckBuckets) ===
+              this.#activeBranchBucket,
+        )
+      : branchNodes;
+
+    // Branches deferred to a later run still count toward the current progress.
+    accountProgress.progressStats.current.branchCount +=
+      branchNodes.length - forwardedBranchNodes.length;
+
+    return forwardedBranchNodes.map((branchNode) => ({
       accountLogin,
       accountProgress,
       accountData,
@@ -427,10 +495,26 @@ export class GetAllGitHubContributions {
       return;
     }
 
+    // Incremental fetch: once a branch has been synced before, only request the
+    // user's commits newer than the last one already seen (minus a 1s buffer to
+    // be safe on equal timestamps; duplicates are de-duplicated by oid below).
+    // Rechecks always do a full fetch to reconcile.
+    const since =
+      this.#incrementalHistory &&
+      !options.recheck &&
+      currentBranchData.latestCommitOid &&
+      currentBranchData.latestCommitTimestamp != null
+        ? new Date(
+            currentBranchData.latestCommitTimestamp - 1_000,
+          ).toISOString()
+        : undefined;
+
     const commitNodes = await githubApi.getAllCommitNodesByBranch(
       repositoryNode,
       branchNode,
+      { since },
     );
+    let latestCommitTimestamp = currentBranchData.latestCommitTimestamp;
     for (const commitNode of commitNodes) {
       const currentCommitData: Commit | undefined =
         currentRepositoryData.commits[commitNode.oid];
@@ -448,17 +532,25 @@ export class GetAllGitHubContributions {
         accountProgress.progressStats.new.changedFileCount +=
           commitNode.changedFilesIfAvailable ?? 0;
       }
+      const commitedAtTimestamp = new Date(commitNode.committedDate).getTime();
       currentRepositoryData.commits[commitNode.oid] = {
         oid: commitNode.oid,
         additions: commitNode.additions,
         deletions: commitNode.deletions,
         changedFiles: commitNode.changedFilesIfAvailable ?? 0,
-        commitedAtTimestamp: new Date(commitNode.committedDate).getTime(),
+        commitedAtTimestamp,
       };
+      if (
+        latestCommitTimestamp == null ||
+        commitedAtTimestamp > latestCommitTimestamp
+      ) {
+        latestCommitTimestamp = commitedAtTimestamp;
+      }
     }
 
-    // Update the latest commit oid after all commits are synced
+    // Update the latest commit markers after all commits are synced
     currentBranchData.latestCommitOid = branchNode.target.oid;
+    currentBranchData.latestCommitTimestamp = latestCommitTimestamp;
     accountProgress.progressStats.current.branchCount += 1;
   }
 
@@ -520,9 +612,26 @@ export class GetAllGitHubContributions {
     console.log("Syncing GitHub contributions");
     const startTime = Date.now();
     const accountProgress = this.#initializeAccountProgress();
+
+    // Advance the branch-rotation counter once per run and derive this run's
+    // active bucket. The counter is persisted in importState so the rotation
+    // round-robins across runs regardless of timing.
+    const previousRotationCounter =
+      this.#data.importState.branchRotationCounter ?? 0;
+    this.#activeBranchBucket =
+      this.#branchRecheckBuckets >= 2
+        ? previousRotationCounter % this.#branchRecheckBuckets
+        : 0;
+    if (this.#branchRecheckBuckets >= 2) {
+      console.log(
+        `Branch rotation: bucket ${this.#activeBranchBucket + 1}/${this.#branchRecheckBuckets} active this run`,
+      );
+    }
+
     this.#data.importState = {
       lastFullImportTimestamp: this.#data.importState.lastFullImportTimestamp,
       currentProgressTimestamp: Date.now(),
+      branchRotationCounter: previousRotationCounter + 1,
       accountProgress,
     };
 
@@ -584,6 +693,7 @@ export class GetAllGitHubContributions {
     const commitSyncProps = await this.#runFlattenParallel({
       items: branchSyncProps,
       callback: this.#syncBranches.bind(this),
+      continueOnError: true,
     });
     this.#clearProgressDot();
 
@@ -593,6 +703,9 @@ export class GetAllGitHubContributions {
       callback: this.#syncCommits.bind(this),
       maxConcurrency: this.#concurrency,
       maxRetries: this.#maxRetries,
+      // A few unreachable branches (transient 403/502, lost access) should not
+      // abort the run and discard everything else that synced successfully.
+      continueOnError: true,
     });
     this.#clearProgressDot();
 

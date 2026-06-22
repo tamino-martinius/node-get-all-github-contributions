@@ -61,6 +61,8 @@ Data is saved to `data/data.json` and persisted every 30 seconds during the sync
 | `import.pageSize` | `number` | `50` | Number of items per page for GraphQL pagination |
 | `import.rateLimitGracePeriod` | `number` | `1000` | Grace period in ms added when waiting for rate limit reset |
 | `import.recheckWithRemainingRateLimit` | `boolean` | `false` | Recheck branches for new commits using remaining rate limit after initial sync |
+| `import.branchRecheckBuckets` | `number` | `0` | Spread non-default branch commit fetches across this many runs. Each run always syncs every repository's default branch plus a deterministic `1/N` slice of its other branches, so all branches are covered within `N` runs. `0` or `1` disables rotation (every branch synced every run) |
+| `import.incrementalHistory` | `boolean` | `false` | For branches already synced once, only fetch commits newer than the last one seen (history `since`) instead of re-paginating full history |
 | `import.skip.organizations` | `string[]` | `[]` | Organization logins to skip |
 | `import.skip.repositories` | `string[]` | `[]` | Repositories to skip (`owner/repo`) |
 

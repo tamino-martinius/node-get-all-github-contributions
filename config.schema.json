@@ -52,6 +52,17 @@
         "description": "Recheck branches for new commits using remaining rate limit after initial sync",
         "default": false
       },
+      "branchRecheckBuckets": {
+        "type": "integer",
+        "description": "Spread non-default branch commit fetches across this many runs. Each run always syncs every repository's default branch plus a deterministic 1/N slice of its other branches, so all branches are covered within N runs. 0 or 1 disables rotation (every branch synced every run).",
+        "minimum": 0,
+        "default": 0
+      },
+      "incrementalHistory": {
+        "type": "boolean",
+        "description": "For branches already synced once, only fetch commits newer than the last one seen (history 'since') instead of re-paginating full history.",
+        "default": false
+      },
       "skip": {
         "type": "object",
         "description": "Skip certain organizations and repositories",

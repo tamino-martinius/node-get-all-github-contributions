@@ -539,16 +539,31 @@ export class GitHubApi {
   public async getAllCommitNodesByBranch(
     repository: Pick<RepositoryNode, "owner" | "name">,
     branch: Pick<BranchNode, "name">,
+    // When `since` is provided (an ISO/GitTimestamp string), only commits with
+    // a committed date at or after it are fetched, turning a full-history
+    // re-pagination into an incremental delta fetch.
+    options: { since?: string } = {},
   ) {
     const user = await this.getCurrentUser();
+    const { since } = options;
+    // Declared GraphQL variables must all be used, so only declare $since when
+    // it is actually applied to the history filter.
+    const sinceVariableDeclaration = since ? ", $since: GitTimestamp" : "";
+    const sinceFilter = since ? ", since: $since" : "";
     return this.#getAllPaginatedNodes<
-      { owner: string; name: string; qualifiedName: string; userId: string },
+      {
+        owner: string;
+        name: string;
+        qualifiedName: string;
+        userId: string;
+        since?: string;
+      },
       CommitsPageResponse,
       CommitNode,
       CommitsPage
     >({
       query: `
-        query($owner: String!, $name: String!, $qualifiedName: String!, $userId: ID!) {
+        query($owner: String!, $name: String!, $qualifiedName: String!, $userId: ID!${sinceVariableDeclaration}) {
           repository(owner: $owner, name: $name) {
             ref(qualifiedName: $qualifiedName) {
               target {
@@ -561,7 +576,7 @@ export class GitHubApi {
         }
       `,
       resource: "history",
-      filter: `author: { id: $userId }`,
+      filter: `author: { id: $userId }${sinceFilter}`,
       nodeQuery: `
         oid
         additions
@@ -580,6 +595,7 @@ export class GitHubApi {
         name: repository.name,
         qualifiedName: branch.name,
         userId: user.id,
+        ...(since ? { since } : {}),
       },
     });
   }

@@ -1,6 +1,6 @@
 {
   "name": "get-all-github-contributions",
-  "version": "0.1.7",
+  "version": "0.2.0",
   "description": "Get all GitHub contributions",
   "type": "module",
   "main": "dist/index.js",
@@ -17,6 +17,7 @@
   "scripts": {
     "build": "rm -rf dist tsconfig.build.tsbuildinfo && tsc -p tsconfig.build.json",
     "prepack": "npm run build",
+    "prepare": "npm run build",
     "import": "npx tsx scripts/import.ts",
     "github:graphiql": "node GraphiQL/server.mjs",
     "lint": "biome check .",

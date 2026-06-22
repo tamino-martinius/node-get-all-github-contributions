@@ -10,6 +10,15 @@ export interface ImportConfig {
     pageSize?: number;
     rateLimitGracePeriod?: number;
     recheckWithRemainingRateLimit?: boolean;
+    // Spreads non-default branch commit fetches across this many runs. Each run
+    // always syncs every repository's default branch plus the deterministic
+    // 1/branchRecheckBuckets slice of its other branches, so all branches are
+    // covered within `branchRecheckBuckets` runs. Falsy or < 2 disables
+    // rotation (every branch is synced every run, the original behavior).
+    branchRecheckBuckets?: number;
+    // When true, branches already synced once only fetch commits newer than the
+    // last one seen (history `since`) instead of re-paginating full history.
+    incrementalHistory?: boolean;
     skip?: {
       organizations?: string[];
       repositories?: string[];
@@ -56,6 +65,9 @@ export interface Commit {
 export interface Branch {
   name: string;
   latestCommitOid?: string;
+  // Committed date (ms epoch) of the most recent of the user's own commits seen
+  // on this branch. Used as the `since` bound for incremental history fetches.
+  latestCommitTimestamp?: number;
 }
 
 export interface Repository {
@@ -112,6 +124,9 @@ export interface ImportData {
   importState: {
     lastFullImportTimestamp?: number;
     currentProgressTimestamp?: number;
+    // Monotonic per-run counter driving branch rotation; the active bucket for a
+    // run is `branchRotationCounter % branchRecheckBuckets`.
+    branchRotationCounter?: number;
     accountProgress: Record<string, AccountProgress>;
   };
 }
