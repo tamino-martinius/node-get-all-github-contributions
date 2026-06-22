@@ -9,6 +9,8 @@
     "pageSize": 50,
     "rateLimitGracePeriod": 1000,
     "recheckWithRemainingRateLimit": false,
+    "branchRecheckBuckets": 4,
+    "incrementalHistory": true,
     "skip": {
       "organizations": ["exampleOrganization"],
       "repositories": ["owner/repository"]
